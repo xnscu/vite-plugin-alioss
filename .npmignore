@@ -1,0 +1,10 @@
+.github
+.vscode
+.env
+.eslintrc.js
+public
+src
+index.html
+test.mjs
+vite.config.js
+bin
