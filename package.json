@@ -1,20 +1,21 @@
 {
   "name": "@xnscu/vite-plugin-alioss",
   "sourceType": "module",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "upload your vite assets to aliyun oss",
   "main": "index.js",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "prerc": "npm --no-git-tag-version version minor",
+    "rc": "yarn push",
     "commit": "git add . && git commit -am ",
-    "push": "npm run commit",
-    "postpush": "git push origin master",
-    "repo": "gh repo create vite-plugin-alioss --source=. --remote=origin",
-    "test": "node test.mjs"
-  },
-  "peerDependencies": {
-    "vite": "^2.0.0 || ^3.0.0 || ^4.0.0"
+    "c": "yarn commit",
+    "g": "yarn push",
+    "push": "yarn commit",
+    "build": "echo pass",
+    "_push": "git push --set-upstream origin master",
+    "_pull": "git pull --recurse-submodules origin master",
+    "postpush": "uname -s | grep -q Darwin && yarn _push || while true; do timeout 10 yarn _push && break; done",
+    "pull": "uname -s | grep -q Darwin && yarn _pull || while true; do timeout 10 yarn _pull && break; done"
   },
   "repository": {
     "type": "git",
