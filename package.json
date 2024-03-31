@@ -13,7 +13,7 @@
     "push": "yarn commit",
     "build": "echo pass",
     "_push": "git push --set-upstream origin master",
-    "_pull": "git pull --recurse-submodules origin master",
+    "_pull": "git pull origin master",
     "postpush": "uname -s | grep -q Darwin && yarn _push || while true; do timeout 10 yarn _push && break; done",
     "pull": "uname -s | grep -q Darwin && yarn _pull || while true; do timeout 10 yarn _pull && break; done"
   },
