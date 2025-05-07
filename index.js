@@ -5,6 +5,8 @@ const colors = require('colors')
 const { red, blue, green, underline, yellow, white } = colors
 const OSS = require('ali-oss')
 
+// 添加一个全局变量来存储已上传的文件URL
+const uploadedFiles = new Set()
 
 const normalize = (url) => {
   const tmpArr = url.split(/\/{2,}/);
@@ -34,6 +36,8 @@ const defaultOption = {
   timeout: 60 * 1000,
   overwrite: false,
   quitWpOnError: false,
+  enableMemory: true,                // 启用记忆功能
+  memoryFilePath: 'node_modules/.oss-upload' // 持久化记忆文件夹路径
 }
 
 const assetUploaderPlugin = (options) => {
@@ -54,8 +58,52 @@ const assetUploaderPlugin = (options) => {
     test,
     overwrite,
     version,
-    setVersion
+    setVersion,
+    enableMemory,
+    memoryFilePath
   } = Object.assign(defaultOption, options)
+
+  // 从文件加载上传记录
+  const loadMemoryFromFile = () => {
+    const memoryFile = path.join(memoryFilePath, '.oss-memory.json')
+
+    if (fs.existsSync(memoryFile)) {
+      try {
+        const memoryData = JSON.parse(fs.readFileSync(memoryFile, 'utf-8'))
+        memoryData.forEach(url => uploadedFiles.add(url))
+        verbose && console.log(green(`已从 ${memoryFile} 加载 ${memoryData.length} 条上传记录`))
+      } catch (err) {
+        console.log(red(`加载上传记录失败: ${err.message}`))
+      }
+    }
+  }
+
+  // 保存上传记录到文件
+  const saveMemoryToFile = () => {
+    try {
+      // 确保目录存在
+      if (!fs.existsSync(memoryFilePath)) {
+        fs.mkdirSync(memoryFilePath, { recursive: true })
+      }
+
+      const memoryFile = path.join(memoryFilePath, '.oss-memory.json')
+
+      fs.writeFileSync(
+        memoryFile,
+        JSON.stringify(Array.from(uploadedFiles)),
+        'utf-8'
+      )
+      verbose && console.log(green(`已将 ${uploadedFiles.size} 条上传记录保存到 ${memoryFile}`))
+    } catch (err) {
+      console.log(red(`保存上传记录失败: ${err.message}`))
+    }
+  }
+
+  // 初始化时加载记忆数据
+  if (enableMemory) {
+    loadMemoryFromFile()
+  }
+
   /**
    * 上传文件
    * @param files 所有需要上传的文件的路径列表
@@ -77,6 +125,7 @@ const assetUploaderPlugin = (options) => {
     const filesUploaded = []  // 已上传文件列表
     const filesIgnored = [] // 已忽略的文件列表
     const filesErrors = []  // 上传失败文件列表
+    const filesCached = [] // 因记忆功能而跳过的文件列表
 
     const basePath = getBasePath(inVite, outputPath)
     const fileCount = _files.length
@@ -94,6 +143,14 @@ const assetUploaderPlugin = (options) => {
           )
         )
       )
+
+      // 检查是否已在已上传文件列表中
+      if (enableMemory && uploadedFiles.has(ossFilePath)) {
+        console.log(yellow(`文件 ${underline(ossFilePath)} 已在记忆中，跳过上传`))
+        filesCached.push(filePath)
+        continue
+      }
+
       // 查看OSS中是否存在该文件
       const fileExists = await getFileExists(ossFilePath)
       console.log(yellow(`oss中 ${underline(ossFilePath)} ${fileExists ? '已存在' : '不存在'}`))
@@ -101,6 +158,7 @@ const assetUploaderPlugin = (options) => {
       // OSS已有该文件且不需覆盖，则将文件加入忽略名单
       if (fileExists && !overwrite) {
         filesIgnored.push(filePath)
+        uploadedFiles.add(ossFilePath)
         continue
       }
       // 测试模式
@@ -119,6 +177,10 @@ const assetUploaderPlugin = (options) => {
 
         result.url = normalize(result.url)
         filesUploaded.push(fPath)
+        // 添加到已上传文件列表
+        if (enableMemory) {
+          uploadedFiles.add(ossFilePath)
+        }
         verbose && console.log(`\n ${i + 1}/${fileCount} ${blue(underline(fPath))} successfully uploaded, oss url =>  ${green(underline(result.url))}`)
 
         if (deleteOrigin) {
@@ -144,6 +206,22 @@ const assetUploaderPlugin = (options) => {
       }
     } catch (err) {
       console.log(red(`更新版本号出错了...`))
+    }
+
+    // 打印上传统计信息
+    if (verbose && !test) {
+      console.log()
+      console.log(green('\n上传任务完成，统计信息：'))
+      console.log(blue(`总文件数: ${fileCount}`))
+      console.log(green(`成功上传: ${filesUploaded.length}`))
+      console.log(yellow(`跳过上传 (OSS已存在): ${filesIgnored.length}`))
+      console.log(yellow(`跳过上传 (记忆功能): ${filesCached.length}`))
+      console.log(red(`上传失败: ${filesErrors.length}`))
+    }
+
+    // 保存记忆数据到文件
+    if (enableMemory) {
+      saveMemoryToFile()
     }
   }
 
