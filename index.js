@@ -37,7 +37,8 @@ const defaultOption = {
   overwrite: false,
   quitWpOnError: false,
   enableMemory: true,                // 启用记忆功能
-  memoryFilePath: 'node_modules/.oss-upload' // 持久化记忆文件夹路径
+  memoryFilePath: 'node_modules/.oss-upload', // 持久化记忆文件夹路径
+  refresh: false                     // 忽略记忆和OSS已存在的情况，强制重新上传
 }
 
 const assetUploaderPlugin = (options) => {
@@ -60,7 +61,8 @@ const assetUploaderPlugin = (options) => {
     version,
     setVersion,
     enableMemory,
-    memoryFilePath
+    memoryFilePath,
+    refresh
   } = Object.assign(defaultOption, options)
 
   // 从文件加载上传记录
@@ -145,7 +147,7 @@ const assetUploaderPlugin = (options) => {
       )
 
       // 检查是否已在已上传文件列表中
-      if (enableMemory && uploadedFiles.has(ossFilePath)) {
+      if (enableMemory && !refresh && uploadedFiles.has(ossFilePath)) {
         console.log(yellow(`文件 ${underline(ossFilePath)} 已在记忆中，跳过上传`))
         filesCached.push(filePath)
         continue
@@ -155,8 +157,8 @@ const assetUploaderPlugin = (options) => {
       const fileExists = await getFileExists(ossFilePath)
       console.log(yellow(`oss中 ${underline(ossFilePath)} ${fileExists ? '已存在' : '不存在'}`))
 
-      // OSS已有该文件且不需覆盖，则将文件加入忽略名单
-      if (fileExists && !overwrite) {
+      // OSS已有该文件且不需覆盖，且不强制刷新，则将文件加入忽略名单
+      if (fileExists && !overwrite && !refresh) {
         filesIgnored.push(filePath)
         uploadedFiles.add(ossFilePath)
         continue

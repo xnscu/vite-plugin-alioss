@@ -1,12 +1,12 @@
 {
   "name": "@xnscu/vite-plugin-alioss",
   "sourceType": "module",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "upload your vite assets to aliyun oss",
   "main": "index.js",
   "scripts": {
-    "prerc": "npm --no-git-tag-version version minor",
-    "rc": "yarn push",
+    "preb": "npm --no-git-tag-version version minor",
+    "b": "yarn push",
     "commit": "git add . && git commit -am ",
     "c": "yarn commit",
     "g": "yarn push",
