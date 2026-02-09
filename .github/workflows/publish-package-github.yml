@@ -24,7 +24,7 @@ jobs:
           git config --global user.name "xnscu-ci"
       - uses: actions/setup-node@v4
         with:
-          node-version-file: ".nvmrc"
+          node-version: "24"
           registry-url: https://npm.pkg.github.com/
       - name: Install jq
         run: sudo apt-get install jq

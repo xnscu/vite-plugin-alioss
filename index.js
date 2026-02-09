@@ -38,7 +38,8 @@ const defaultOption = {
   quitWpOnError: false,
   enableMemory: true,                // 启用记忆功能
   memoryFilePath: 'node_modules/.oss-upload', // 持久化记忆文件夹路径
-  refresh: false                     // 忽略记忆和OSS已存在的情况，强制重新上传
+  refresh: false,                    // 忽略记忆和OSS已存在的情况，强制重新上传
+  retryCount: 3                      // 上传失败时的重试次数，0 表示不重试
 }
 
 const assetUploaderPlugin = (options) => {
@@ -62,7 +63,8 @@ const assetUploaderPlugin = (options) => {
     setVersion,
     enableMemory,
     memoryFilePath,
-    refresh
+    refresh,
+    retryCount
   } = Object.assign(defaultOption, options)
 
   // 从文件加载上传记录
@@ -172,10 +174,24 @@ const assetUploaderPlugin = (options) => {
       try {
         verbose && console.log(`\n ${i + 1}/${fileCount} ${white(underline(fPath))} uploading...`)
 
-        const result = await oss.put(ossFilePath, filePath, {
-          timeout,
-          headers: !overwrite ? { "Cache-Control": "max-age=31536000", 'x-oss-forbid-overwrite': true } : {}
-        })
+        let result
+        const maxAttempts = Math.max(0, retryCount) + 1
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+          try {
+            result = await oss.put(ossFilePath, filePath, {
+              timeout,
+              headers: !overwrite ? { "Cache-Control": "max-age=31536000", 'x-oss-forbid-overwrite': true } : {}
+            })
+            break
+          } catch (err) {
+            if (attempt < maxAttempts) {
+              verbose && console.log(yellow(`上传失败，${maxAttempts - attempt} 次重试剩余，1秒后重试...`))
+              await new Promise(r => setTimeout(r, 1000))
+            } else {
+              throw err
+            }
+          }
+        }
 
         result.url = normalize(result.url)
         filesUploaded.push(fPath)
